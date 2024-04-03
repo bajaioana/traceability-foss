@@ -30,8 +30,8 @@ in which context the service runs and which stakeholders are involved.
 
 ### Essential features
 
-* List and view manufactured parts based on BoM AsBuild
-* List and view planned parts based on BoM AsPlanned
+* List, view and publish manufactured parts based on BoM AsBuild
+* List, view and publish planned parts based on BoM AsPlanned
 * Filter and search functionality on part views
 * Show detailed information on manufactured parts from AAS description assets and Aspects
 * Uses Submodels SerialPart, AssemblyPartRelationship and Batch
@@ -143,7 +143,7 @@ In order to use Trace-X frontend with Trace-X backend, users need to authenticat
 By the frontend UI users provide valid credentials and the system generates a bearer token that it gets from Keycloak and attaches it to the HTTP header parameter Authorization.
 Then once a user is authorized and has proper role within Trace-X backend, the backend delegates HTTP calls to specific service in their behalf as technical user in order to fulfill specific functionality.
 
-#### Registry API
+#### [Outdated] Registry API
 
 ![arc42_001](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_001.png)
 
@@ -157,18 +157,24 @@ Requests contain "assetIds" provided by the component during assets synchronizat
 The Trace-X acts as a consumer of the IRS component. The Trace-X contains a Restful client (REST template) that build a REST call to the mentioned IRS API based on its known URL (the IRS URL is configurable in the Trace-X).
 Request contains details required to start IRS fetch job provided by the component during assets synchronization. Like described in the above section, the security aspect is required in order to achieve a REST call against the IRS. As a response, the Trace-X gets the created job id and periodically pulls for the job details that contains assets that will be uploaded to the system. And as mentioned above, the transport protocol HTTP(S) is used for the REST call communication.
 
-#### Portal API
+#### [Outdated] Portal API
 
 ![arc42_003](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_003.png)
 
-The Trace-X acts as a consumer of the Portal component. The Trace-X contains a Restful client (REST template) that build a REST call to the mentioned Portal API based on its known URL (the Portal URL is configurable in the Trace-X).
-Request contains "bpns" provided by the component during sending notifications. Like described in the above section, the security aspect is required in order to achieve a REST call against the Portal. As a response, the Trace-X gets the corresponding BPN mappings to EDC urls where a notification should be send over. And as mentioned above, the transport protocol HTTP(S) is used for the REST call communication.
+The Trace-X acts as a consumer of the Portal component.
+The Trace-X contains a Restful client (REST template) that builds a REST call to the mentioned Portal API based on its known URL (the Portal URL is configurable in the Trace-X).
+The Portal is used to authenticate users and requests against the backend.
+And as mentioned above, the transport protocol HTTP(S) is used for the REST call communication.
 
-#### EDC API
+#### [Outdated] EDC API
 
 ![arc42_004](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_004.png)
 
-The Trace-X acts as a consumer of the EDC component. In Trace-X we communicate with EDC directly only for the sake of fulfilling quality-investigation functionality. Specific use cases can be viewed in [Runtime view](../runtime-view/index.adoc) section. For this purposes the integrated EDC clients in the Trace-X are responsible for creating restful requests to the EDC component. And as mentioned above, the transport protocol HTTP(S) is used for the REST call communication.
+The Trace-X acts as a consumer and provider of the EDC component.
+In Trace-X we communicate with EDC directly only for the sake of fulfilling quality-investigation functionality.
+Specific use cases can be viewed in [Runtime view](../runtime-view/index.adoc) section.
+For these purposes the integrated EDC clients in the Trace-X are responsible for creating restful requests to the EDC component.
+And as mentioned above, the transport protocol HTTP(S) is used for the REST call communication.
 
 ## Solution strategy
 
@@ -204,14 +210,20 @@ It roughly can be broken down into the following parts:
 * Asset controllers to get the asset information
 * Dashboard controller to get dashboard related summed up information
 * Registry controller to fetch assets from the Digital Twin Registry
-* Notification controllers to get notification information
+* Notification controller to get notification information and create EDC notification offers
 * Submodel controller for providing asset data functionality
+* Import controller for importing Trace-X data for data provisioning
+* Contract controller to get information about contract agreements
+* EDC controller to retrieve notifications
+* IRS callback controller to retrieve asynchronous jobs completed by IRS
+* Policy controller to retrieve information about policies
+* BPN controller to retrieve information about business partners
 
 The backend does a request to the Digital Twin Registry utilizing the Registry controller. Extracted data from the response is made available through the Asset controller and the Dashboard controller to the Frontend.
 
 ## Building block view
 
-## Whitebox overall system
+## Blackbox overall system
 
 ### Component diagram
 
@@ -225,21 +237,12 @@ Component Diagram
 
 ### Component description
 
-|Components |Description
-|IRS
-|The IRS consumes relationship information across the CX-Network and builds the graph view. Within this Documentation, the focus lies on the IRS
-
-|EDC Consumer
-|The EDC Consumer Component is there to fulfill the GAIA-X and IDSA-data sovereignty principles. The EDC Consumer consists out of a control plane and a data plane.
-
-|EDC Provider
-|The EDC Provider Component connects with EDC Consumer component and  forms the end point for the actual exchange of data. It handles automatic contract negotiation and the subsequent exchange of data assets for connected applications.
-
-|Submodel Server
-|The Submodel Server offers endpoints for requesting the Submodel aspects.
-
-|IAM/DAPS
-|DAPS as central Identity Provider
+| Components | Description |
+| --- | --- |
+| IRS | The IRS consumes relationship information across the CX-Network and builds the graph view. Within this Documentation, the focus lies on the IRS |
+| EDC Consumer | The EDC Consumer Component is there to fulfill the GAIA-X and IDSA-data sovereignty principles. The EDC Consumer consists out of a control plane and a data plane. |
+| EDC Provider | The EDC Provider Component connects with EDC Consumer component and forms the endpoint for the actual exchange of data. It handles automatic contract negotiation and the subsequent exchange of data assets for connected applications. |
+| Submodel Server | The Submodel Server offers endpoints for requesting the Submodel aspects. |
 
 ## Level 1
 
@@ -276,7 +279,7 @@ The same can be done with as planned assets.
 
 ![arc42_007](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_007.png)
 
-##### Overview
+### Overview
 
 When a user requests stored assets, TraceX-FOSS checks if the user has an adequate role ('ROLE_ADMIN', 'ROLE_SUPERVISOR', 'ROLE_USER').
 If yes, then the endpoint returns a pageable result of assets.
@@ -291,7 +294,7 @@ The same can be done with as planned assets.
 
 ![arc42_008](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_008.png)
 
-##### Overview
+### Overview
 
 When a user requests a specific asset, TraceX-FOSS checks if the user has an adequate role ('ROLE_ADMIN', 'ROLE_SUPERVISOR', 'ROLE_USER'). If yes, then the endpoint returns a precise Asset for the given assetId, if it is found.
 
@@ -299,15 +302,15 @@ If no asset has been found for the given ID, an AssetNotFoundException is thrown
 
 ## Notifications
 
-## Receive Quality Investigation
+## Receive Quality Notification
 
-This sequence diagram describes the process of receiving a quality investigation from another Traceability partner.
+This sequence diagram describes the process of receiving a quality notification from another Traceability partner.
 
 ![arc42_009](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_009.png)
 
 ### Overview
 
-As for the sending of a quality investigation also for receiving of a notification EDC is used to push data from a sender to a receiver.
+As for the sending of a quality notification also for receiving of a notification EDC is used to push data from a sender to a receiver.
 To enable receiving a notification by a partner you need to
 
 * Create notification endpoint for qualitynotifications/receive
@@ -319,9 +322,9 @@ Trace-X implements a functionality to create the assets and their corresponding 
 
 With the notification asset is possible to enable EDC contract negotiation and EDC data transfer based on access policies defined. Only if the sender is able to browse the asset in the catalog offer and perform a successful contract negotiation there will be the possibility to push a notification to the specified http endpoint on the receiver side.
 
-## Send Quality Investigation
+## Send Quality Notification
 
-This sequence diagram describes the process of sending a quality investigation between Traceability applications.
+This sequence diagram describes the process of sending a quality notification between Traceability applications.
 
 ![arc42_010](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_010.png)
 
@@ -354,7 +357,7 @@ For digital twins the Asset Administration Shell (AAS) standard is used. For fet
 
 This sequence diagrams describes the process of importing data from a Trace-X Dataformat
 
-Modul 1
+### Modul 1
 
 Data will be imported by the Trace-X Frontend into Trace-X backend and will be persisted as asset by a Trace-X instance in a transient state.
 The raw data which is needed for the shared services (DTR / EDC) will be persisted as well.
@@ -364,7 +367,7 @@ The raw data which is needed for the shared services (DTR / EDC) will be persist
 
 ```
 
-Modul 2 - DRAFT
+### Modul 2
 
 The frontend is able to select assets and publish / syncronize them with the shared services. DTR / EDC / Submodel API.
 
@@ -373,7 +376,7 @@ The frontend is able to select assets and publish / syncronize them with the sha
 
 ```
 
-Modul 3 - DRAFT
+### Modul 3
 
 The backend is able to persist the data in the DTR / EDC and allows to use IRS for resolving assets.
 
@@ -382,19 +385,114 @@ The backend is able to persist the data in the DTR / EDC and allows to use IRS f
 
 ```
 
-TODO: Add all scenarios for data-provisioning
-
 ## Scenario 1: Receive import report
 
 This section describes what happens when the user wants to get a report of the imported assets associated to a importJobId.
 In this example, the user requests an import report.
 
-##### Overview
+### Overview
 
 When a user requests an import report, TraceX-FOSS checks if the user has an adequate role ('ROLE_ADMIN', 'ROLE_SUPERVISOR').
 If yes, then the endpoint returns an import report to the given importJobId.
 
 If the importJobId is not known to Trace-X, an HTTP 404 error is returned.
+
+## Scenario 2: Publish assets
+
+This section describes user interaction when publishing assets
+
+### Overview
+
+When a user publishes assets, TraceX-FOSS checks if the user has an adequate role ('ROLE_ADMIN').
+If yes, then endpoint starts to publish assets to network.
+
+## Scenario 3: Publish assets Error on EDC or DTR
+
+This section describes user interaction when publishing assets fails due to EDC or DTR error ( for example services are unavailable )
+
+### Overview
+
+When a user publishes assets, TraceX-FOSS checks if the user has an adequate role ('ROLE_ADMIN').
+If yes, then endpoint starts to publish assets to network.
+If any of required Services are not available or returns Error response upon executing flow assets are set to ERROR state and user can retry publishing them at any time when services are available
+
+## Data Souvereignty
+
+## Scenario 1: Return Asset Contract Agreements
+
+This section describes functionality and the behavior in case a user requests contract agreements from Trace-X via the Trace-X contracts API (/contracts).
+
+### Overview
+
+In case a user requests contract agreements, Trace-X checks if the user has required roles ('ROLE_ADMIN', 'ROLE_SUPERVISOR').
+If yes, then the requested assets will be mapped to the related contract agreement id.
+These contract agreement ids will be then requested on EDC side via POST (/management/v2/contractagreements/request) and GET (/management/v2/contractagreements/\{ContractAgreementId\}/negotiation) to get the relevant information.
+
+The contract information is then returned by the endpoint as a pageable result.
+
+If no asset ids are provided in the request, 50 contract agreement ids are handled by default.
+
+## Policies
+
+### Overview
+
+#### Scenario 1: Startup interaction with IRS Policy Store
+
+The Trace-X instance defines a constraint which is required for data consumption and provisioning.
+Trace-X retrieves all policies by IRS and validates if one of the policies contains the required constraint given by Trace-X.
+If a policy with the constraint exists and is valid, the process ends. If the policy is not valid, it will create one with the given constraint.
+
+This sequence diagram describes the process of retrieving or creating policies within the IRS Policy Store based on the constraint given by Trace-X.
+
+![arc42_015](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_015.png)
+```bash
+
+
+
+
+
+```
+
+#### Scenario 2: Startup interaction with EDC
+
+The Trace-X instance uses the policy which includes the defined constraint and transforms it into a valid EDC policy request.
+The EDC policy request will be used for creating a policy for the required notification contracts.
+
+This sequence diagram describes the process of retrieving the correct policy by IRS Policy Store based on the constraint given by Trace-X and reuses it for creating an EDC policy.
+
+![arc42_016](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_016.png)
+```bash
+
+
+
+
+```
+
+#### Scenario 3: Provisioning of notifications
+
+The Trace-X instance uses the policy which includes the defined constraint and reuses it for validation of catalog offers by the receiver EDC.
+
+This sequence diagram describes the process of how the policy with the defined constraint will be used for validation of the catalog offers from the receiver EDC.
+
+![arc42_017](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_017.png)
+
+#### Scenario 4: Provisioning of assets
+
+The Trace-X instance uses the policy which includes the defined constraint and reuses it for creating EDC assets.
+
+This sequence diagram describes the process of how the policy with the defined constraint will be reused for registering EDC data assets.
+
+![arc42_018](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_018.png)
+
+## Scheduler
+
+An overview of the scheduler tasks configured in the system.
+
+|     |     |     |
+| --- | --- | --- |
+| Scheduler Name | Execution Interval | Description |
+| PublishAssetsJob | Every hour at 30min | Publishes assets in IN_SYNCHRONIZATION state to core services. The process combines 'as-built' and 'as-planned' assets and initiates their publication for synchronization in the traceability system. |
+| AssetsRefreshJob | Every 2 hours | Invokes the synchronization of asset shell descriptors with the decentralized registry. It ensures the latest asset information is fetched and updated in the system from external sources. |
 
 ## Deployment view
 
@@ -405,7 +503,14 @@ If the importJobId is not known to Trace-X, an HTTP 404 error is returned.
 Please be informed that the 'as-planned' version currently lacks the database relations. However, kindly maintain the Entity-Relationship Model (ERM) in its current state.
 
 ```bash
-image::./assets/arc42/arc42_015.png[]
+image::./assets/arc42/arc42_019.png[]
+```
+
+#### Quality Notifications
+
+![arc42_020](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_020.png)
+```bash
+
 ```
 
 ## Safety and security concepts
@@ -423,7 +528,7 @@ JWT token should also contain two claims:
 The list of values will be converted to roles by Trace-X.
 Currently, Trace-X API handles three roles: ***'User'*** and ***'Supervisor'*** and ***'Admin'.***
 
-You can have a look at the rights and roles matrix in the system overview of the administration guide.
+You can have a look at the [rights and role matrix](https://github.com/eclipse-tractusx/traceability-foss/blob/main/docs/src/docs/administration/system-overview.adoc#rights-and-role-matrix-of-trace-x) in the system overview of the administration guide.
 
 #### Trace-X as EDC client
 
@@ -539,8 +644,7 @@ The generated OpenAPI specification file is automatically compared to a fixed, s
 
 ### Migration
 
-There currently is no data migration mechanism for TraceX.
-In case the model of the persisted data (Jobs) changes, data is dropped and Jobs will need to be recreated.
+Data migration is handled by flyway.
 
 ### Configurability
 
@@ -689,7 +793,7 @@ This section includes concrete quality scenarios to better capture the key quali
 
 The tree structure provides an overview for a sometimes large number of quality requirements.
 
-![arc42_016](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_016.png)
+![arc42_021](https://bajaioana.github.io/traceability-foss/docs/assets/arc42/arc42_021.png)
 
 ## Quality scenarios
 
